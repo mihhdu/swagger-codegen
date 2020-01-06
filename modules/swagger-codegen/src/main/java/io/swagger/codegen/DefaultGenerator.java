@@ -108,6 +108,15 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
 
     private String getHost() {
         StringBuilder hostBuilder = new StringBuilder();
+        hostBuilder.append(getHostWithoutBasePath());
+        if (!StringUtils.isEmpty(swagger.getBasePath()) && !swagger.getBasePath().equals("/")) {
+            hostBuilder.append(swagger.getBasePath());
+        }
+        return hostBuilder.toString();
+    }
+
+    private String getHostWithoutBasePath() {
+        StringBuilder hostBuilder = new StringBuilder();
         hostBuilder.append(getScheme());
         hostBuilder.append("://");
         if (!StringUtils.isEmpty(swagger.getHost())) {
@@ -115,9 +124,6 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
         } else {
             hostBuilder.append("localhost");
             LOGGER.warn("'host' not defined in the spec. Default to 'localhost'.");
-        }
-        if (!StringUtils.isEmpty(swagger.getBasePath()) && !swagger.getBasePath().equals("/")) {
-            hostBuilder.append(swagger.getBasePath());
         }
         return hostBuilder.toString();
     }
@@ -395,6 +401,8 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
         // post process all processed models
         allProcessedModels = config.postProcessAllModels(allProcessedModels);
 
+        final boolean skipAlias = config.getSkipAliasGeneration() != null && config.getSkipAliasGeneration();
+
         // generate files based on processed models
         for (String modelName : allProcessedModels.keySet()) {
             Map<String, Object> models = (Map<String, Object>) allProcessedModels.get(modelName);
@@ -405,7 +413,7 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
                     continue;
                 }
                 Map<String, Object> modelTemplate = (Map<String, Object>) ((List<Object>) models.get("models")).get(0);
-                if (config instanceof AbstractJavaCodegen) {
+                if (skipAlias) {
                     // Special handling of aliases only applies to Java
                     if (modelTemplate != null && modelTemplate.containsKey("model")) {
                         CodegenModel m = (CodegenModel) modelTemplate.get("model");
@@ -475,6 +483,7 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
                 });
                 Map<String, Object> operation = processOperations(config, tag, ops, allModels);
 
+                operation.put("hostWithoutBasePath", getHostWithoutBasePath());
                 operation.put("basePath", basePath);
                 operation.put("basePathWithoutHost", basePathWithoutHost);
                 operation.put("contextPath", contextPath);
@@ -715,7 +724,7 @@ public class DefaultGenerator extends AbstractGenerator implements Generator {
         if (swagger.getHost() != null) {
             bundle.put("host", swagger.getHost());
         }
-
+        bundle.put("hostWithoutBasePath", getHostWithoutBasePath());
         bundle.put("swagger", this.swagger);
         bundle.put("basePath", basePath);
         bundle.put("basePathWithoutHost", basePathWithoutHost);
